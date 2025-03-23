@@ -9,6 +9,9 @@
     "build" : "npm install",
     "start": "node index.js"
   },
+  "pkg": {
+    "assets": "node_modules/puppeteer-extra-plugin-stealth/**/*.*"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
