@@ -91,23 +91,75 @@ const techKeywords = [
 const tokenizer = new natural.WordTokenizer();
 
 // Helper functions
-function getRandomTime(min, max) {
-  return Math.floor(Math.random() * (max - min + 1) + min);
-}
-
-// Create a delay function compatible with older Puppeteer versions
-async function delay(page, ms) {
-  return page.evaluate(ms => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }, ms);
-}
-
-async function scrollWithRandomPauses(page, scrollCount) {
-  for (let i = 0; i < scrollCount; i++) {
-    await page.evaluate(() => window.scrollBy(0, Math.floor(Math.random() * 500) + 300));
-    await delay(page, getRandomTime(800, 2500));
+  function getRandomTime(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
   }
-}
+  
+  // Create a delay function compatible with older Puppeteer versions
+  async function delay(page, ms) {
+    return page.evaluate(ms => {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }, ms);
+  }
+  
+  async function scrollWithRandomPauses(page, maxTimeInSeconds = 60) {
+    const startTime = Date.now();
+    const endTime = startTime + (maxTimeInSeconds * 1000);
+    
+    // Human-like scroll behavior parameters
+    const minScrollAmount = 700;  // Minimum pixels to scroll
+    const maxScrollAmount = 1500;  // Maximum pixels to scroll
+    
+    // Faster but still human-like delays
+    const minDelay = 300;  // Minimum delay between scrolls in ms
+    const maxDelay = 500; // Maximum delay between scrolls in ms
+    
+    // Occasionally do rapid scrolls to simulate user finding something interesting
+    const rapidScrollChance = 0.15;  // 15% chance for rapid scrolling
+    
+    while (Date.now() < endTime) {
+      // Decide if we do a rapid scroll or normal scroll
+      const isRapidScroll = Math.random() < rapidScrollChance;
+      
+      if (isRapidScroll) {
+        // Rapid scroll simulation (2-4 quick scrolls)
+        const quickScrolls = Math.floor(Math.random() * 3) + 2;
+        for (let i = 0; i < quickScrolls; i++) {
+          const scrollAmount = Math.floor(Math.random() * 
+            (maxScrollAmount - minScrollAmount + 1)) + minScrollAmount;
+          await page.evaluate(scrollY => window.scrollBy(0, scrollY), scrollAmount);
+          await delay(page, getRandomTime(150, 350)); // Quicker delays for rapid scrolling
+        }
+        // Pause a bit longer after rapid scrolling as a human would
+        await delay(page, getRandomTime(600, 1500));
+      } else {
+        // Normal scroll behavior
+        const scrollAmount = Math.floor(Math.random() * 
+          (maxScrollAmount - minScrollAmount + 1)) + minScrollAmount;
+        await page.evaluate(scrollY => window.scrollBy(0, scrollY), scrollAmount);
+        
+        // Occasionally pause a bit longer as if reading content
+        const longPauseChance = 0.2; // 20% chance for longer pause
+        if (Math.random() < longPauseChance) {
+          await delay(page, getRandomTime(1000, 2500));
+        } else {
+          await delay(page, getRandomTime(minDelay, maxDelay));
+        }
+      }
+      
+      // Check if we've reached the bottom of the page
+      const isAtBottom = await page.evaluate(() => {
+        return window.innerHeight + window.scrollY >= document.body.scrollHeight;
+      });
+      
+      if (isAtBottom) {
+        // Wait a moment as a human would when reaching the bottom
+        await delay(page, getRandomTime(1000, 2000));
+        break;
+      }
+    }
+  }
+ 
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
