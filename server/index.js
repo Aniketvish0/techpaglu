@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
-import { PORT } from './config/env.js';
-import analyzeRoutes from './routes/analyze.js';
-import adminRoutes from './routes/admin.js';
-import healthRoutes from './routes/health.js';
+import { PORT } from './src/config/env.js';
+import analyzeRoutes from './src/routes/analyze.js';
+import adminRoutes from './src/routes/admin.js';
+import healthRoutes from './src/routes/health.js';
 
 const app = express();
 
