@@ -7,15 +7,10 @@ import { fileURLToPath } from 'url';
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import dotenv from 'dotenv';
-
-// Configure environment variables
 dotenv.config();
-
-// Set up __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configure Express
 const app = express();
 app.use(cors({
   origin: '*',
@@ -24,12 +19,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Configure Puppeteer
 puppeteer.use(StealthPlugin());
 
 // Simple in-memory cache
 const cache = {};
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // Rate limiting and cooldown
 let last403Time = null;
@@ -91,74 +85,147 @@ const techKeywords = [
 const tokenizer = new natural.WordTokenizer();
 
 // Helper functions
-  function getRandomTime(min, max) {
-    return Math.floor(Math.random() * (max - min + 1) + min);
-  }
+function getRandomTime(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+// Create a delay function compatible with older Puppeteer versions
+async function delay(page, ms) {
+  return page.evaluate(ms => {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }, ms);
+}
+
+async function scrollWithRandomPausesAndCollectTweets(page, maxTimeInSeconds = 60) {
+  const startTime = Date.now();
+  const endTime = startTime + (maxTimeInSeconds * 1000);
   
-  // Create a delay function compatible with older Puppeteer versions
-  async function delay(page, ms) {
-    return page.evaluate(ms => {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }, ms);
-  }
+  // Human-like scroll behavior parameters
+  const minScrollAmount = 500;  // Minimum pixels to scroll
+  const maxScrollAmount = 1200;  // Maximum pixels to scroll
   
-  async function scrollWithRandomPauses(page, maxTimeInSeconds = 60) {
-    const startTime = Date.now();
-    const endTime = startTime + (maxTimeInSeconds * 1000);
-    
-    // Human-like scroll behavior parameters
-    const minScrollAmount = 700;  // Minimum pixels to scroll
-    const maxScrollAmount = 1500;  // Maximum pixels to scroll
-    
-    // Faster but still human-like delays
-    const minDelay = 300;  // Minimum delay between scrolls in ms
-    const maxDelay = 500; // Maximum delay between scrolls in ms
-    
-    // Occasionally do rapid scrolls to simulate user finding something interesting
-    const rapidScrollChance = 0.15;  // 15% chance for rapid scrolling
-    
-    while (Date.now() < endTime) {
-      // Decide if we do a rapid scroll or normal scroll
-      const isRapidScroll = Math.random() < rapidScrollChance;
+  // Faster but still human-like delays
+  const minDelay = 200;  // Minimum delay between scrolls in ms
+  const maxDelay = 500; // Maximum delay between scrolls in ms
+  
+  // Occasionally do rapid scrolls to simulate user finding something interesting
+  const rapidScrollChance = 0.15;  // 15% chance for rapid scrolling
+  
+  // Set to track unique tweets to avoid duplicates
+  const allTweets = new Set();
+  let seenElements = new Set();
+  
+  // Function to collect tweets during scrolling
+  async function collectTweets() {
+    const newTweets = await page.evaluate(() => {
+      // Try different selectors that might contain tweet text
+      const tweets = [];
+      const processedElements = new Set();
       
-      if (isRapidScroll) {
-        // Rapid scroll simulation (2-4 quick scrolls)
-        const quickScrolls = Math.floor(Math.random() * 3) + 2;
-        for (let i = 0; i < quickScrolls; i++) {
-          const scrollAmount = Math.floor(Math.random() * 
-            (maxScrollAmount - minScrollAmount + 1)) + minScrollAmount;
-          await page.evaluate(scrollY => window.scrollBy(0, scrollY), scrollAmount);
-          await delay(page, getRandomTime(150, 350)); // Quicker delays for rapid scrolling
+      // Process elements and add to tweets array if not already processed
+      function processElements(elements) {
+        return Array.from(elements).filter(el => {
+          // Create a unique identifier for the element (could use attributes or position)
+          const identifier = el.innerText + "_" + el.offsetTop;
+          if (!processedElements.has(identifier)) {
+            processedElements.add(identifier);
+            return true;
+          }
+          return false;
+        }).map(el => el.textContent);
+      }
+      
+      // Try tweetText elements first (most specific)
+      const tweetTextElements = document.querySelectorAll('[data-testid="tweetText"]');
+      if (tweetTextElements.length > 0) {
+        tweets.push(...processElements(tweetTextElements));
+      }
+      
+      // If we didn't find tweet text elements, try tweet articles
+      if (tweets.length === 0) {
+        const tweetElements = document.querySelectorAll('article[data-testid="tweet"]');
+        if (tweetElements.length > 0) {
+          tweets.push(...processElements(tweetElements));
         }
-        // Pause a bit longer after rapid scrolling as a human would
-        await delay(page, getRandomTime(600, 1500));
-      } else {
-        // Normal scroll behavior
+      }
+      
+      // If still no tweets, try cell divs
+      if (tweets.length === 0) {
+        const cellDivs = document.querySelectorAll('[data-testid="cellInnerDiv"]');
+        if (cellDivs.length > 0) {
+          tweets.push(...processElements(cellDivs));
+        }
+      }
+      
+      // Last resort fallback
+      if (tweets.length === 0) {
+        const paragraphs = document.querySelectorAll('p');
+        if (paragraphs.length > 0) {
+          tweets.push(...processElements(paragraphs));
+        }
+      }
+      
+      return tweets;
+    });
+    
+    // Add new tweets to our collection
+    newTweets.forEach(tweet => allTweets.add(tweet));
+    console.log(`Found ${newTweets.length} new tweets. Total unique tweets: ${allTweets.size}`);
+  }
+  
+  while (Date.now() < endTime) {
+    // Collect tweets before scrolling
+    await collectTweets();
+    
+    // Decide if we do a rapid scroll or normal scroll
+    const isRapidScroll = Math.random() < rapidScrollChance;
+    
+    if (isRapidScroll) {
+      // Rapid scroll simulation (2-4 quick scrolls)
+      const quickScrolls = Math.floor(Math.random() * 3) + 2;
+      for (let i = 0; i < quickScrolls; i++) {
         const scrollAmount = Math.floor(Math.random() * 
           (maxScrollAmount - minScrollAmount + 1)) + minScrollAmount;
         await page.evaluate(scrollY => window.scrollBy(0, scrollY), scrollAmount);
-        
-        // Occasionally pause a bit longer as if reading content
-        const longPauseChance = 0.2; // 20% chance for longer pause
-        if (Math.random() < longPauseChance) {
-          await delay(page, getRandomTime(1000, 2500));
-        } else {
-          await delay(page, getRandomTime(minDelay, maxDelay));
-        }
+        await delay(page, getRandomTime(150, 350)); // Quicker delays for rapid scrolling
       }
+      // Pause a bit longer after rapid scrolling as a human would
+      await delay(page, getRandomTime(600, 1500));
+    } else {
+      // Normal scroll behavior
+      const scrollAmount = Math.floor(Math.random() * 
+        (maxScrollAmount - minScrollAmount + 1)) + minScrollAmount;
+      await page.evaluate(scrollY => window.scrollBy(0, scrollY), scrollAmount);
       
-      // Check if we've reached the bottom of the page
-      const isAtBottom = await page.evaluate(() => {
-        return window.innerHeight + window.scrollY >= document.body.scrollHeight;
-      });
-      
-      if (isAtBottom) {
-        // Wait a moment as a human would when reaching the bottom
-        await delay(page, getRandomTime(1000, 2000));
-        break;
+      // Occasionally pause a bit longer as if reading content
+      const longPauseChance = 0.2; // 20% chance for longer pause
+      if (Math.random() < longPauseChance) {
+        await delay(page, getRandomTime(1000, 2500));
+      } else {
+        await delay(page, getRandomTime(minDelay, maxDelay));
       }
     }
+    
+    // Check if we've reached the bottom of the page
+    const isAtBottom = await page.evaluate(() => {
+      return window.innerHeight + window.scrollY >= document.body.scrollHeight;
+    });
+    
+    if (isAtBottom) {
+      // One final collection of tweets
+      await collectTweets();
+      // Wait a moment as a human would when reaching the bottom
+      await delay(page, getRandomTime(1000, 2000));
+      break;
+    }
   }
+  
+  // Final collection of tweets before returning
+  await collectTweets();
+  
+  // Convert Set to Array before returning
+  return Array.from(allTweets).slice(0, 500);
+}
  
 
 const USER_AGENTS = [
@@ -418,32 +485,11 @@ async function analyzeWithRetry(handle, retryCount = 0) {
     }
     
     // Scroll a few times to load more tweets with human-like behavior
-    console.log('Scrolling to load more tweets...');
-    await scrollWithRandomPauses(page, 30);
-    
-    // Try different selectors to get tweets
-    console.log('Extracting tweets...');
-    const tweets = await page.evaluate(() => {
-      // Try different selectors that might contain tweet text
-      const tweetTextElements = document.querySelectorAll('[data-testid="tweetText"]');
-      if (tweetTextElements.length > 0) {
-        return Array.from(tweetTextElements).map(el => el.textContent).slice(0, 500);
-      }
-      
-      const tweetElements = document.querySelectorAll('article[data-testid="tweet"]');
-      if (tweetElements.length > 0) {
-        return Array.from(tweetElements).map(tweet => tweet.textContent).slice(0, 500);
-      }
-      
-      const cellDivs = document.querySelectorAll('[data-testid="cellInnerDiv"]');
-      if (cellDivs.length > 0) {
-        return Array.from(cellDivs).map(div => div.textContent).slice(0, 500);
-      }
-      
-      // Fallback: just get any text on the page
-      return Array.from(document.querySelectorAll('p')).map(p => p.textContent).slice(0, 500);
-    });
-    console.log(tweets);
+    console.log('Scrolling and extracting tweets simultaneously...');
+    const tweets = await scrollWithRandomPausesAndCollectTweets(page);
+    console.log(`Total tweets collected: ${tweets.length}`);
+    fs.writeFileSync(path.join(__dirname, 'twitter.json'), JSON.stringify(tweets));
+    console.log("Tweets saved in json");
     console.log(`Found ${tweets.length} tweets/text elements`);
     
     if (tweets.length === 0) {
