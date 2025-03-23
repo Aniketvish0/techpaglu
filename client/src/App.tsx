@@ -47,7 +47,7 @@ function App() {
       const response = await axios.post('http://localhost:3000/analyze', { 
         handle: cleanHandle 
       }, {
-        timeout: 60000 // Increase timeout to 60 seconds as scraping can take time
+        timeout: 120000 // Increase timeout to 120 seconds as scraping can take time
       });
       
       setResult(response.data);
