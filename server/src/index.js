@@ -19,6 +19,10 @@ app.use('/', analyzeRoutes);
 app.use('/', adminRoutes);
 app.use('/', healthRoutes);
 
+
+app.get('/test',(req,res)=>{
+  res.json("I am alive");
+})
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
