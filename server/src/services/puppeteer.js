@@ -7,6 +7,7 @@ puppeteer.use(StealthPlugin());
 export async function launchBrowser() {
   return puppeteer.launch({
     headless: false,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
