@@ -8,7 +8,7 @@ import healthRoutes from './routes/health.js';
 const app = express();
 
 app.use(cors({
-  origin: '*',
+  origin: 'https://techpaglu.vercel.app',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
