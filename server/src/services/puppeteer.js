@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { getRandomUserAgent, delay } from '../utils/helpers.js';
+import { getRandomUserAgent} from '../utils/helpers.js';
 
 puppeteer.use(StealthPlugin());
 
