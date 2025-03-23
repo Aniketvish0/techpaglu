@@ -129,7 +129,7 @@ function App() {
                 <AlertTriangle />
               </div>
               <p className="text-red-400 text-sm">
-                Backend server appears to be offline. Please make sure the server is running on port 3000.
+                Backend server appears to be offline. Contact Developer x.com/aniketvish0
               </p>
             </div>
           )}
