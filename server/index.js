@@ -331,7 +331,7 @@ async function analyzeWithRetry(handle, retryCount = 0) {
         // }
         
         // Wait for login to complete
-        await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 15000 })
+        await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 })
           .catch(() => console.log("Navigation timeout after login, continuing anyway"));
         
         // Save cookies for future use
@@ -339,14 +339,11 @@ async function analyzeWithRetry(handle, retryCount = 0) {
         fs.writeFileSync(path.join(__dirname, 'twitter-cookies.json'), JSON.stringify(cookies, null, 2));
         console.log("Login successful! Cookies saved for future sessions.");
         
-        // Take a screenshot after login
-        await page.screenshot({ path: `after-login-${handle}.png` });
-        
-        // Navigate to the profile page again after login
-        await page.goto(`https://twitter.com/${handle}`, {
-          waitUntil: 'networkidle2',
-          timeout: 30000
-        });
+        // // Navigate to the profile page again after login
+        // await page.goto(`https://twitter.com/${handle}`, {
+        //   waitUntil: 'networkidle2',
+        //   timeout: 30000
+        // });
       } catch (loginError) {
         console.error("Error during login process:", loginError);
         await page.screenshot({ path: 'login-error.png' });
@@ -368,12 +365,9 @@ async function analyzeWithRetry(handle, retryCount = 0) {
       console.log('Failed to find tweets with standard selectors, continuing anyway...');
     }
     
-    // Take a screenshot for debugging (optional)
-    await page.screenshot({ path: `profile-${handle}.png` });
-    
     // Scroll a few times to load more tweets with human-like behavior
     console.log('Scrolling to load more tweets...');
-    await scrollWithRandomPauses(page, 5);
+    await scrollWithRandomPauses(page, 30);
     
     // Try different selectors to get tweets
     console.log('Extracting tweets...');
@@ -397,7 +391,7 @@ async function analyzeWithRetry(handle, retryCount = 0) {
       // Fallback: just get any text on the page
       return Array.from(document.querySelectorAll('p')).map(p => p.textContent).slice(0, 500);
     });
-
+    console.log(tweets);
     console.log(`Found ${tweets.length} tweets/text elements`);
     
     if (tweets.length === 0) {
@@ -529,7 +523,6 @@ app.post('/clear-cooldown', (req, res) => {
   res.json({ success: true, message: 'Cooldown reset successfully' });
 });
 
-// Test endpoint to verify server is running
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'UP', 
