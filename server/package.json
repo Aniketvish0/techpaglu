@@ -12,6 +12,11 @@
   "pkg": {
     "assets": "node_modules/puppeteer-extra-plugin-stealth/**/*.*"
   },
+  "externals": {
+    "puppeteer": "puppeteer",
+    "puppeteer-extra": "puppeteer-extra",
+    "puppeteer-extra-plugin-stealth": "puppeteer-extra-plugin-stealth"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
