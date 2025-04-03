@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: techpaglu
+    runtime: python
+    plan: free 
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: X_USERNAME
+        sync: false
+      - key: X_EMAIL
+        sync: false
+      - key: X_PASSWORD
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      
